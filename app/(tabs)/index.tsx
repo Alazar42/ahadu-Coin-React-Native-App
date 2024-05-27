@@ -1,70 +1,136 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { Link } from 'expo-router';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const Index: React.FC = () => {
+  const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false); // Add state for dark mode
+  const [currentAmount, setCurrentAmount] = useState(0);
+  const navigation = useNavigation();
 
-export default function HomeScreen() {
+  const handleCoinPress = (): void => {
+    setCurrentAmount(currentAmount + 1);
+  };
+
+  const handleLogout = (): void => {
+    console.log('User logged out');
+  };
+
+  const toggleDropdown = (): void => {
+    setDropdownVisible(!dropdownVisible);
+  };
+
+  const toggleDarkMode = (): void => {
+    setIsDarkMode((prevMode) => !prevMode);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
+    <View style={[styles.container, isDarkMode && styles.darkModeContainer]}> 
+      <View style={styles.header}>
+        <View style={styles.amountContainer}>
+          <Text style={[styles.amount, isDarkMode && styles.darkModeText]}>{currentAmount} $</Text> 
+        </View>
+        <Pressable onPress={toggleDropdown} style={styles.accountContainer}>
+          <MaterialIcons name="account-circle" size={30} color="black" />
+          <Text style={[styles.username, isDarkMode && styles.darkModeText]}>Username</Text> 
+        </Pressable>
+        {dropdownVisible && (
+          <View style={styles.dropdown}>
+            <Link href='/'>
+            <Pressable onPress={handleLogout} style={styles.logoutButton}>
+              <Text style={styles.logoutText}>Logout</Text>
+            </Pressable>
+            </Link>
+          </View>
+        )}
+      </View>
+
+      <Pressable style={styles.coinContainer} onPress={handleCoinPress}>
         <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+          source={require('@/assets/images/ahadu-coin.png')}
+          style={styles.coinImage}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </Pressable>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+  },
+  darkModeContainer: { // Dark mode container styles
+    backgroundColor: '#222222',
+  },
+  darkModeText: { // Dark mode text styles
+    color: 'white',
+  },
+  header: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  amountContainer: {
+    position: 'absolute',
+    top: 100,
+    left: '55%', // Center the amount above the coin container
+    transform: [{ translateX: -50 }], // Center the amount horizontally
+  },
+  amount: {
+    fontSize: 35,
+    fontWeight: 'bold',
+    color: 'goldenrod',
+  },
+  accountContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 20, // Position the account container at the top right
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    padding: 5,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  username: {
+    fontSize: 16,
+    marginLeft: 5,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  dropdown: {
     position: 'absolute',
+    top: 35,
+    right: 20, // Position the dropdown at the top right
+    backgroundColor: 'white',
+    borderRadius: 8,
+    elevation: 3,
+    padding: 0,
+    zIndex: 1,
+  },
+  logoutButton: {
+    paddingVertical: 10,
+    width: 120,
+    alignItems: 'center',
+  },
+  logoutText: {
+    fontSize: 16,
+    color: 'brown',
+  },
+  coinContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  coinImage: {
+    width: 350,
+    height: 350,
   },
 });
+
+export default Index;
