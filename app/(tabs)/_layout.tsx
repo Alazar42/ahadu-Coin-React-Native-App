@@ -15,12 +15,12 @@
           headerShown: false,
         }}>
         <Tabs.Screen
-          name="earn"
+          name="clans"
           options={{
             headerShown: false,
-            title: 'Earn',
+            title: 'Clans',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'wallet' : 'wallet-outline'} color='goldenrod' />
+              <TabBarIcon name={focused ? 'people' : 'people-outline'} color='goldenrod' />
             ),
           }}
         />
@@ -41,16 +41,6 @@
             title: 'Boost',
             tabBarIcon: ({ color, focused }) => (
               <TabBarIcon name={focused ? 'flame' : 'flame-outline'} color='goldenrod' />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="clans"
-          options={{
-            headerShown: false,
-            title: 'Clans',
-            tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'people' : 'people-outline'} color='goldenrod' />
             ),
           }}
         />

@@ -1,12 +1,61 @@
-import React, { useState } from "react";
-import { Text, View, StyleSheet, Pressable, TextInput, Switch } from "react-native";
-import { Link } from "expo-router";
+import React, { useState, useEffect } from "react";
+import { Text, View, StyleSheet, Pressable, TextInput, Switch, Alert, ActivityIndicator } from "react-native";
+import { Link, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export default function Register() {
+const Register: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [token, setToken] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkToken = async () => {
+      const savedToken = await AsyncStorage.getItem("userToken");
+      if (savedToken) {
+        setToken(savedToken);
+        router.push("/(tabs)");
+      }
+    };
+    checkToken();
+  }, [router]);
 
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => !prevMode);
+  };
+
+  const handleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("https://tap-coin-backend.onrender.com/api/v1/auth-login/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setToken(data.access_token);
+      setError("");
+      await AsyncStorage.setItem("userToken", data.access_token);
+      router.push("/(tabs)");
+      Alert.alert("Login Successful", "You have successfully logged in!");
+    } catch (error) {
+      console.error("Error:", error);
+      setError((error as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -20,31 +69,35 @@ export default function Register() {
 
       <TextInput
         style={styles.input}
+        onChangeText={(text) => setUsername(text)}
         placeholder="Enter Your Username..."
         placeholderTextColor="gray"
       />
 
       <TextInput
         style={styles.input}
+        onChangeText={(text) => setPassword(text)}
         placeholder="Enter Your Password..."
         placeholderTextColor="gray"
         secureTextEntry={true}
       />
 
-      <Link href="/(tabs)" asChild>
-        <Pressable style={styles.button}>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {isLoading ? (
+        <ActivityIndicator size="large" color="goldenrod" />
+      ) : (
+        <Pressable style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>LOGIN</Text>
         </Pressable>
-      </Link>
+      )}
 
       <Link href="/register" asChild>
-        <Text style={styles.registerText}>
-          Don't have an account? Register
-        </Text>
+        <Text style={styles.registerText}>Don't have an account? Register</Text>
       </Link>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -99,6 +152,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "black",
   },
+  errorText: {
+    color: "red",
+    marginBottom: 20,
+    textAlign: "center",
+  },
   registerText: {
     marginTop: 20,
     fontSize: 16,
@@ -106,3 +164,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+export default Register;
