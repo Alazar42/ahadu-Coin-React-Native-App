@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Text, View, StyleSheet, Pressable, TextInput, Switch, Alert, ActivityIndicator } from "react-native";
 import { Link, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -13,16 +13,16 @@ const Register: React.FC = () => {
 
   const router = useRouter();
 
-  useEffect(() => {
-    const checkToken = async () => {
-      const savedToken = await AsyncStorage.getItem("userToken");
-      if (savedToken) {
-        setToken(savedToken);
-        router.push("/(tabs)");
-      }
-    };
-    checkToken();
-  }, [router]);
+  // Directly call the token check function when the component mounts
+  const checkToken = async () => {
+    const savedToken = await AsyncStorage.getItem("userToken");
+    if (savedToken) {
+      setToken(savedToken);
+      router.replace("/(tabs)");
+    }
+  };
+
+  checkToken(); // Call the function here
 
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => !prevMode);
@@ -48,7 +48,7 @@ const Register: React.FC = () => {
       setToken(data.access_token);
       setError("");
       await AsyncStorage.setItem("userToken", data.access_token);
-      router.push("/(tabs)");
+      router.replace("/(tabs)");
       Alert.alert("Login Successful", "You have successfully logged in!");
     } catch (error) {
       console.error("Error:", error);
@@ -60,10 +60,7 @@ const Register: React.FC = () => {
 
   return (
     <View style={[styles.container, isDarkMode && styles.darkModeContainer]}>
-      <View style={styles.switchContainer}>
-        <Text style={[styles.switchText, isDarkMode && styles.switchTextDark]}>Dark Mode</Text>
-        <Switch value={isDarkMode} onValueChange={toggleDarkMode} />
-      </View>
+      
 
       <Text style={styles.title}>LOGIN</Text>
 

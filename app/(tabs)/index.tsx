@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 interface UserData {
   username: string;
   coin_balance: number;
+  clan: string | null;
 }
 
 const Index: React.FC = () => {
@@ -14,6 +15,7 @@ const Index: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [currentAmount, setCurrentAmount] = useState<string>('0');
   const [username, setUsername] = useState<string>('');
+  const [userClan, setUserClan] = useState<string>(''); 
   const router = useRouter();
 
   useEffect(() => {
@@ -35,17 +37,23 @@ const Index: React.FC = () => {
 
           const data: UserData = await response.json();
           setUsername(data.username);
-
           // Set the current amount with coin_balance from the response
           if (typeof data.coin_balance !== 'undefined') {
             setCurrentAmount(data.coin_balance.toString());
           }
+
+          // Set the user's clan information
+          if (data.clan) {
+            setUserClan("Clan: " + data.clan);
+          } else {
+            setUserClan('Join a clan');
+          }
         } else {
-          router.push('/'); // Redirect to login if no token is found
+          router.replace('/'); // Redirect to login if no token is found
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
-        Alert.alert('Error', 'Failed to fetch user data');
+        Alert.alert('Alert', 'Session Ended Login Again');
+        handleLogout();
       }
     };
 
@@ -76,8 +84,6 @@ const Index: React.FC = () => {
       if (!response.ok) {
         throw new Error('Failed to update user balance');
       }
-
-      console.log('User balance updated successfully');
     } catch (error) {
       console.error('Error updating user balance:', error);
       Alert.alert('Error', 'Failed to update user balance');
@@ -104,14 +110,13 @@ const Index: React.FC = () => {
       }
   
       await AsyncStorage.removeItem('userToken');
-      router.push('/'); // Redirect to login after logout
+      router.replace('/'); // Redirect to login after logout
       console.log('User logged out');
     } catch (error) {
       console.error('Error logging out:', error);
       Alert.alert('Error', 'Failed to logout');
     }
   };
-  
 
   const toggleDropdown = (): void => {
     setDropdownVisible(!dropdownVisible);
@@ -130,7 +135,7 @@ const Index: React.FC = () => {
     <View style={[styles.container, isDarkMode && styles.darkModeContainer]}>
       <View style={styles.header}>
         <View style={styles.amountContainer}>
-          <Text style={[styles.amount, isDarkMode && styles.darkModeText]}>{currentAmount} $</Text>
+          <Text style={[styles.amount, isDarkMode && styles.darkModeText]}>{currentAmount} ፩</Text>
         </View>
         <Pressable onPress={toggleDropdown} style={styles.accountContainer}>
           <MaterialIcons name="account-circle" size={30} color="black" />
@@ -151,6 +156,10 @@ const Index: React.FC = () => {
           style={styles.coinImage}
         />
       </Pressable>
+
+      <Text onPress={() => router.replace('(tabs)/clans')} style={[styles.clanText, isDarkMode && styles.darkModeText]}>
+        {userClan}
+      </Text>
     </View>
   );
 };
@@ -180,12 +189,12 @@ const styles = StyleSheet.create({
   },
   amountContainer: {
     position: 'absolute',
-    width:'100%',
+    width: '100%',
     top: 100,
-    textAlign:'center',
+    textAlign: 'center',
   },
   amount: {
-    textAlign:'center',
+    textAlign: 'center',
     fontSize: 35,
     fontWeight: 'bold',
     color: 'goldenrod',
@@ -227,9 +236,14 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   coinImage: {
-    marginTop:100,
+    marginTop: 100,
     width: 350,
     height: 350,
+  },
+  clanText: {
+    marginTop: 20,
+    fontSize: 18,
+    textAlign: 'center',
   },
 });
 

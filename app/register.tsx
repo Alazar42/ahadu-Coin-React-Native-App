@@ -9,16 +9,29 @@ const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
 
+  const validateForm = () => {
+    const newErrors: string[] = [];
+
+    if (!firstName) newErrors.push('First Name is required.');
+    if (!lastName) newErrors.push('Last Name is required.');
+    if (!email) newErrors.push('Email is required.');
+    if (!username) newErrors.push('Username is required.');
+    if (!password) newErrors.push('Password is required.');
+    if (!confirmPassword) newErrors.push('Confirm Password is required.');
+    if (password !== confirmPassword) newErrors.push('Passwords do not match.');
+    if (password && password.length < 6) newErrors.push('Password must be at least 6 characters long.');
+
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
+
   const handleRegister = async () => {
-    if (password !== confirmPassword) {
-      Alert.alert('Password Mismatch', 'The passwords do not match');
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
 
@@ -38,10 +51,10 @@ const Register: React.FC = () => {
 
       const data = await response.json();
       Alert.alert('Registration Successful', 'You have successfully registered!');
-      router.push('/');
+      router.replace('/');
     } catch (error) {
       console.error('Error:', error);
-      setError((error as Error).message);
+      setErrors([(error as Error).message]);
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +115,13 @@ const Register: React.FC = () => {
         onChangeText={setConfirmPassword}
       />
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {errors.length > 0 && (
+        <View style={styles.errorContainer}>
+          {errors.map((error, index) => (
+            <Text key={index} style={styles.errorText}>{error}</Text>
+          ))}
+        </View>
+      )}
 
       <Pressable style={styles.button} onPress={handleRegister} disabled={isLoading}>
         {isLoading ? (
@@ -156,9 +175,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'black',
   },
+  errorContainer: {
+    marginBottom: 20,
+  },
   errorText: {
     color: 'red',
-    marginBottom: 20,
+    marginBottom: 5,
     textAlign: 'center',
   },
   loginText: {

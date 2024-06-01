@@ -30,17 +30,17 @@
             headerShown: false,
             title: 'Collect',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'trophy' : 'trophy-outline'} color='goldenrod' />
+              <TabBarIcon name={focused ? 'game-controller' : 'game-controller-outline'} color='goldenrod' />
             ),
           }}
         />
         <Tabs.Screen
-          name="boost"
+          name="leaderboard"
           options={{
             headerShown: false,
-            title: 'Boost',
+            title: 'Leaderboard',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'flame' : 'flame-outline'} color='goldenrod' />
+              <TabBarIcon name={focused ? 'trophy' : 'trophy-outline'} color='goldenrod' />
             ),
           }}
         />

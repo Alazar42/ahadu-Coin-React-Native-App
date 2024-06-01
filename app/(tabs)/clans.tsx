@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, TextInput, Button } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, TextInput, Button, RefreshControl, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Clan {
-  id: string;
+  _id: string;
   name: string;
   leader: string;
   description: string;
-  members: string[]; // Assuming users is an array of strings (usernames)
+  members: string[];
 }
 
 const Clans: React.FC = () => {
-  const [expandedClan, setExpandedClan] = useState<string | null>(null); // Updated to handle string IDs
+  const [expandedClan, setExpandedClan] = useState<string | null>(null);
   const [clansData, setClansData] = useState<Clan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,28 +21,58 @@ const Clans: React.FC = () => {
   const [newClanDescription, setNewClanDescription] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [currentUsername, setCurrentUsername] = useState<string>("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  // New state for member modal
+  const [membersModalVisible, setMembersModalVisible] = useState(false);
+  const [membersList, setMembersList] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchToken = async () => {
-      const storedToken = await AsyncStorage.getItem('userToken');
-      setToken(storedToken);
+    const fetchTokenAndCurrentUser = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('userToken');
+        if (storedToken) {
+          setToken(storedToken);
+          await fetchCurrentUser(storedToken);
+        }
+      } catch (error) {
+        setError((error as Error).message);
+      }
     };
 
-    fetchToken().then(fetchClans);
-  }, [token]);
-
-  useEffect(() => {
-    // Fetch current user's username here and set it
-    const fetchCurrentUser = async () => {
-      // Replace this with your actual logic to fetch the current user's username
-      const username = "current_username"; // Replace with actual username
-      setCurrentUsername(username);
-    };
-
-    fetchCurrentUser();
+    fetchTokenAndCurrentUser();
   }, []);
 
-  const fetchClans = async () => {
+  const fetchCurrentUser = async (token: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('https://tap-coin-backend.onrender.com/api/v1/users/me', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized. Please log in again.');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Response from fetchCurrentUser:', data);
+      setCurrentUsername(data.username);
+      fetchClans(token); 
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchClans = async (token: string) => {
     setIsLoading(true);
     try {
       const response = await fetch("https://tap-coin-backend.onrender.com/api/v1/clans/list", {
@@ -58,7 +88,7 @@ const Clans: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: Clan[] = await response.json(); // Assuming the response is an array of Clan objects
+      const data: Clan[] = await response.json();
       if (data.length === 0) {
         setError("No clans available at the moment.");
       } else {
@@ -71,7 +101,13 @@ const Clans: React.FC = () => {
     }
   };
 
-  const toggleExpansion = (clanId: string) => { // Updated to handle string IDs
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchClans(token);
+    setRefreshing(false);
+  };
+
+  const toggleExpansion = (clanId: string) => {
     setExpandedClan(expandedClan === clanId ? null : clanId);
   };
 
@@ -97,7 +133,7 @@ const Clans: React.FC = () => {
         if (response.status === 401) {
           throw new Error('Unauthorized. Please log in again.');
         }
-        else if(response.status === 400){
+        else if (response.status === 400) {
           throw new Error("User already belongs to a clan");
         }
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -109,7 +145,8 @@ const Clans: React.FC = () => {
       setNewClanName("");
       setNewClanDescription("");
       Alert.alert("Success", "Clan created successfully!");
-      fetchClans(); // Call fetchClans after successful clan creation
+      await fetchClans(token); // Call fetchClans after successful clan creation
+      await fetchCurrentUser(token);
     } catch (error) {
       Alert.alert("Error", (error as Error).message);
     } finally {
@@ -117,35 +154,144 @@ const Clans: React.FC = () => {
     }
   };
 
-  const renderItem = ({ item }: { item: Clan }) => (
-    <View style={styles.clanItem}>
-      <Pressable onPress={() => toggleExpansion(item.id)} style={styles.clanHeader}>
-        <Text style={styles.clanName}>{item.name}</Text>
-        <Text style={styles.usersCount}>{item.members.length} Members</Text>
-      </Pressable>
-      {expandedClan === item.id && (
-        <View style={styles.expandedContent}>
-          <View style={styles.detailsContainer}>
-            <View style={styles.detail}>
-              <Text style={styles.detailLabel}>Leader:</Text>
-              <Text style={styles.detailText}>{item.leader}</Text>
-              <Text style={styles.detailLabel}>Description:</Text>
-              <Text style={styles.detailText}>{item.description}</Text>
+  const handleLeaveClan = async (clanId: string) => {
+    try {
+      const response = await fetch("https://tap-coin-backend.onrender.com/api/v1/clans/leave", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ clan_id: clanId }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized. Please log in again.');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      Alert.alert("Success", "You have left the clan.");
+      // You may want to refetch the clans after leaving to update the UI
+      await fetchClans(token);
+    } catch (error) {
+      Alert.alert("Error", (error as Error).message);
+    }
+  };
+
+  const handleJoinClan = async (clanId: string) => {
+    try {
+      const response = await fetch("https://tap-coin-backend.onrender.com/api/v1/clans/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ clan_id: clanId }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized. Please log in again.');
+        } else if (response.status === 400) {
+          throw new Error('User is already in a clan');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      Alert.alert("Success", "You have joined the clan!");
+      // You may want to refetch the clans after joining to update the UI
+      await fetchClans(token);
+    } catch (error) {
+      Alert.alert("Error", (error as Error).message);
+    }
+  };
+
+  const handleDeleteClan = async (clanId: string) => {
+    try {
+      const response = await fetch(`https://tap-coin-backend.onrender.com/api/v1/clans/delete`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ "clan_id": clanId })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized. Please log in again.');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Remove the deleted clan from the state
+      setClansData(clansData.filter(clan => clan._id !== clanId));
+      Alert.alert("Success", "Clan deleted successfully!");
+    } catch (error) {
+      Alert.alert("Error", (error as Error).message);
+    }
+  };
+
+  const handleShowMembers = (members: string[]) => {
+    setMembersList(members);
+    setMembersModalVisible(true);
+  };
+
+  const renderItem = ({ item }: { item: Clan }) => {
+    const isMember = item.members.includes(currentUsername);
+
+    return (
+      <View style={styles.clanItem}>
+        <Pressable onPress={() => toggleExpansion(item._id)} style={styles.clanHeader}>
+          <Text style={styles.clanName}>{item.name}</Text>
+          <Text style={styles.usersCount}>{item.members.length} Members</Text>
+        </Pressable>
+        {expandedClan === item._id && (
+          <View style={styles.expandedContent}>
+            <View style={styles.detailsContainer}>
+              <View style={styles.detail}>
+                <Text style={styles.detailLabel}>Leader:</Text>
+                <Text style={styles.detailText}>{item.leader}</Text>
+                <Text style={styles.detailLabel}>Description:</Text>
+                <Text style={styles.detailText}>{item.description}</Text>
+              </View>
+              <View style={styles.buttonContainer}>
+                <Pressable
+                  style={styles.membersButton}
+                  onPress={() => handleShowMembers(item.members)}
+                >
+                  <Text style={styles.membersButtonText}>Members</Text>
+                </Pressable>
+                {item.leader === currentUsername ? (
+                  <Pressable
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteClan(item._id)}
+                  >
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </Pressable>
+                ) : isMember ? (
+                  <Pressable
+                    style={styles.leaveButton}
+                    onPress={() => handleLeaveClan(item._id)}
+                  >
+                    <Text style={styles.leaveButtonText}>Leave</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.joinButton}
+                    onPress={() => handleJoinClan(item._id)}
+                  >
+                    <Text style={styles.joinButtonText}>Join</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
-            {item.leader === currentUsername ? ( // Check if the current user is the leader
-              <Pressable style={styles.deleteButton}>
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </Pressable>
-            ) : (
-              <Pressable style={styles.joinButton}>
-                <Text style={styles.joinButtonText}>Join</Text>
-              </Pressable>
-            )}
           </View>
-        </View>
-      )}
-    </View>
-  );
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -158,7 +304,10 @@ const Clans: React.FC = () => {
         <FlatList
           data={clansData}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item._id}
+          refreshControl={
+            <RefreshControl colors={['goldenrod']} refreshing={refreshing} onRefresh={onRefresh} />
+          }
         />
       )}
       <Pressable style={styles.addButton} onPress={() => setModalVisible(true)}>
@@ -184,8 +333,27 @@ const Clans: React.FC = () => {
             value={newClanDescription}
             onChangeText={setNewClanDescription}
           />
-          <Button title="Create" onPress={handleCreateClan} />
-          <Button title="Cancel" onPress={() => setModalVisible(false)} color="red" />
+          <View style={{ flexDirection: 'row', marginTop: 20 }}>
+            <Button title="Create" onPress={handleCreateClan} color="brown" />
+            <Text>          </Text>
+            <Button title="Cancel" onPress={() => setModalVisible(false)} color="red" />
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={membersModalVisible}
+        onRequestClose={() => setMembersModalVisible(false)}
+      >
+        <View style={styles.membersModalView}>
+          <Text style={styles.modalTitle}>Clan Members</Text>
+          <ScrollView style={styles.membersList}>
+            {membersList.map((member, index) => (
+              <Text key={index} style={styles.memberName}>{`${index + 1}. ${member}`}</Text>
+            ))}
+          </ScrollView>
+          <Button title="Close" onPress={() => setMembersModalVisible(false)} color="red" />
         </View>
       </Modal>
     </View>
@@ -231,9 +399,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   detailsContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   detail: {
     flexDirection: 'column',
@@ -249,11 +417,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'black',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
   joinButton: {
+    width:100,
+    textAlign:'center',
     backgroundColor: 'goldenrod',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 5,
+    marginLeft: 135,
   },
   joinButtonText: {
     textAlign: 'center',
@@ -262,10 +437,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   deleteButton: {
+    width:100,
+    textAlign:'center',
     backgroundColor: 'red',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 5,
+    marginLeft: 135,
   },
   deleteButtonText: {
     textAlign: 'center',
@@ -286,7 +464,7 @@ const styles = StyleSheet.create({
   },
   modalView: {
     margin: 20,
-    backgroundColor: 'white',
+    backgroundColor: 'goldenrod',
     borderRadius: 20,
     padding: 35,
     alignItems: 'center',
@@ -300,6 +478,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
+    color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 15,
@@ -309,10 +488,65 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 40,
     borderColor: 'gray',
-    borderWidth: 1,
     borderRadius: 5,
     paddingHorizontal: 10,
     marginBottom: 20,
+    backgroundColor: 'white'
+  },
+  leaveButton: {
+    width:100,
+    textAlign:'center',
+    backgroundColor: 'goldenrod',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+    marginLeft: 135,
+  },
+  leaveButtonText: {
+    textAlign: 'center',
+    color: 'black',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  membersButton: {
+    backgroundColor: 'goldenrod',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+  },
+  membersButtonText: {
+    textAlign: 'center',
+    color: 'black',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  membersModalView: {
+    margin: 20,
+    backgroundColor: 'goldenrod',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  membersList: {
+    gap:5,
+    marginVertical: 10,
+    width: '100%',
+  },
+  memberName: {
+    borderBottomWidth:1,
+    borderBottomColor:'white',
+    paddingBottom:10,
+    fontSize: 16,
+    color: 'white',
+    marginVertical: 5,
   },
 });
 
